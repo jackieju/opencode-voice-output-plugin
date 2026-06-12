@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 
 const spokenMessages = new Set();
@@ -6,6 +6,10 @@ const LOG = "/tmp/opencode_tts_debug.log";
 
 function log(msg) {
   appendFileSync(LOG, `${new Date().toISOString()}: ${msg}\n`);
+}
+
+function stopSpeaking() {
+  try { execSync("killall say 2>/dev/null"); } catch {}
 }
 
 function speak(text) {
@@ -40,6 +44,13 @@ export const TTSPlugin = async () => {
         const part = event.properties?.part;
         if (part && part.type === "text" && part.text && part.sessionID) {
           sessionTexts.set(part.sessionID, part.text);
+        }
+      }
+
+      if (event.type === "message.updated") {
+        const info = event.properties?.info;
+        if (info && info.role === "user") {
+          stopSpeaking();
         }
       }
 
