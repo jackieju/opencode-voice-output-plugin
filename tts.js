@@ -1,8 +1,9 @@
 import { spawn, execSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const spokenMessages = new Set();
 const LOG = "/tmp/opencode_tts_debug.log";
+const STATE_FILE = "/tmp/opencode_tts_enabled";
 const PLUGIN_DIR = "/Users/I027910/Desktop/ju/projects/opencode-voice-output-plugin";
 const PYTHON = `${PLUGIN_DIR}/.venv/bin/python3`;
 const SPEAK_SCRIPT = `${PLUGIN_DIR}/kokoro-speak.py`;
@@ -11,12 +12,21 @@ function log(msg) {
   appendFileSync(LOG, `${new Date().toISOString()}: ${msg}\n`);
 }
 
+function isEnabled() {
+  if (!existsSync(STATE_FILE)) return true;
+  return readFileSync(STATE_FILE, "utf8").trim() !== "0";
+}
+
+function setEnabled(val) {
+  writeFileSync(STATE_FILE, val ? "1" : "0");
+}
+
 function stopSpeaking() {
   try { execSync("killall afplay 2>/dev/null"); } catch {}
 }
 
 function speak(text) {
-  if (!text.trim()) return;
+  if (!text.trim() || !isEnabled()) return;
 
   const cleaned = text
     .replace(/```[\s\S]*?```/g, "")
@@ -39,6 +49,21 @@ export const TTSPlugin = async () => {
   const spokenSessions = new Set();
 
   return {
+    "command.execute.before": async ({ command }) => {
+      if (command === "/voice-on") {
+        setEnabled(true);
+        stopSpeaking();
+        log("Voice output ENABLED");
+        return { abort: true, output: "Voice output enabled." };
+      }
+      if (command === "/voice-off") {
+        setEnabled(false);
+        stopSpeaking();
+        log("Voice output DISABLED");
+        return { abort: true, output: "Voice output disabled." };
+      }
+    },
+
     event: async ({ event }) => {
       if (event.type === "message.part.updated") {
         const part = event.properties?.part;
