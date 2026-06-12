@@ -1,0 +1,14 @@
+{
+  "name": "opencode-voice-output-plugin",
+  "version": "1.0.0",
+  "description": "OpenCode plugin that speaks assistant responses aloud using macOS TTS",
+  "main": "tts.js",
+  "type": "module",
+  "keywords": ["opencode", "plugin", "tts", "voice", "speech"],
+  "author": "jackieju",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jackieju/opencode-voice-output-plugin.git"
+  }
+}
