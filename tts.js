@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
 
 const spokenMessages = new Set();
+const LOG = "/tmp/opencode_tts_debug.log";
+
+function log(msg) {
+  appendFileSync(LOG, `${new Date().toISOString()}: ${msg}\n`);
+}
 
 function speak(text) {
   if (!text.trim()) return;
@@ -16,27 +22,41 @@ function speak(text) {
 
   if (!cleaned || cleaned.length < 3) return;
 
-  const proc = spawn("say", ["-r", "200", cleaned], { detached: true, stdio: "ignore" });
+  const hasChinese = /[\u4e00-\u9fff]/.test(cleaned);
+  const voice = hasChinese ? "Tingting" : "Samantha";
+
+  const proc = spawn("say", ["-v", voice, "-r", "200", cleaned], { detached: true, stdio: "ignore" });
   proc.unref();
 }
 
 export const TTSPlugin = async () => {
+  log("TTS plugin loaded");
+  const sessionTexts = new Map();
+  const spokenSessions = new Set();
+
   return {
     event: async ({ event }) => {
-      if (event.type !== "message.updated") return;
+      if (event.type === "message.part.updated") {
+        const part = event.properties?.part;
+        if (part && part.type === "text" && part.text && part.sessionID) {
+          sessionTexts.set(part.sessionID, part.text);
+        }
+      }
 
-      const info = event.properties?.info;
-      if (!info || info.role !== "assistant" || !info.finish) return;
-      if (spokenMessages.has(info.id)) return;
-      spokenMessages.add(info.id);
+      if (event.type === "session.idle") {
+        const sessionID = event.properties?.sessionID;
+        if (!sessionID) return;
+        const text = sessionTexts.get(sessionID);
+        if (!text) return;
+        sessionTexts.delete(sessionID);
 
-      const parts = event.properties?.parts ?? info.parts ?? [];
-      const text = parts
-        .filter((p) => p.type === "text" && typeof p.text === "string")
-        .map((p) => p.text)
-        .join("\n");
+        const key = `${sessionID}-${Date.now()}`;
+        if (spokenSessions.has(key)) return;
+        spokenSessions.add(key);
 
-      if (text) speak(text);
+        log(`Speaking (${text.length} chars): ${text.slice(0, 80)}`);
+        speak(text);
+      }
     },
   };
 };
