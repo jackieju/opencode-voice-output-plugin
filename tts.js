@@ -3,13 +3,16 @@ import { appendFileSync } from "node:fs";
 
 const spokenMessages = new Set();
 const LOG = "/tmp/opencode_tts_debug.log";
+const PLUGIN_DIR = "/Users/I027910/Desktop/ju/projects/opencode-voice-output-plugin";
+const PYTHON = `${PLUGIN_DIR}/.venv/bin/python3`;
+const SPEAK_SCRIPT = `${PLUGIN_DIR}/kokoro-speak.py`;
 
 function log(msg) {
   appendFileSync(LOG, `${new Date().toISOString()}: ${msg}\n`);
 }
 
 function stopSpeaking() {
-  try { execSync("killall say 2>/dev/null"); } catch {}
+  try { execSync("killall afplay 2>/dev/null"); } catch {}
 }
 
 function speak(text) {
@@ -26,10 +29,7 @@ function speak(text) {
 
   if (!cleaned || cleaned.length < 3) return;
 
-  const hasChinese = /[\u4e00-\u9fff]/.test(cleaned);
-  const voice = hasChinese ? "Tingting" : "Samantha";
-
-  const proc = spawn("say", ["-v", voice, "-r", "200", cleaned], { detached: true, stdio: "ignore" });
+  const proc = spawn(PYTHON, [SPEAK_SCRIPT, cleaned], { detached: true, stdio: "ignore" });
   proc.unref();
 }
 
